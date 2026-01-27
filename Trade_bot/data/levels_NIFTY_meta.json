@@ -1,0 +1,14 @@
+{
+  "symbol": "NIFTY",
+  "data_start": "2025-01-16",
+  "data_end": "2026-01-16",
+  "total_candles": 249,
+  "levels_count": 11,
+  "computed_date": "2026-01-16 11:01:54",
+  "config": {
+    "swing_lookback": 10,
+    "cluster_radius": 100,
+    "min_touches": 2,
+    "round_interval": 500
+  }
+}

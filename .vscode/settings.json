@@ -1,0 +1,5 @@
+{
+    "python.analysis.extraPaths": [
+        "./scalping_engine_complete"
+    ]
+}

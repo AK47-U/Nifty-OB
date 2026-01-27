@@ -1,0 +1,324 @@
+{
+  "generated_at": "2026-01-27T10:56:38.199388",
+  "data_period_days": 365,
+  "candles_analyzed": 247,
+  "price_summary": {
+    "current_close": 25048.65,
+    "year_high": 26373.2,
+    "year_low": 21743.65,
+    "year_range": 4629.549999999999,
+    "year_range_pct": 21.29150349642309,
+    "median": 24946.5,
+    "mean": 24734.446356275304,
+    "std_dev": 1090.0038853080614,
+    "coefficient_of_variation": 0.044068254838116466
+  },
+  "quartiles": {
+    "q1_25pct": 24328.725,
+    "q2_median": 24946.5,
+    "q3_75pct": 25579.824999999997,
+    "q1_q3_range": 1251.0999999999985
+  },
+  "key_levels": {
+    "resistance": [
+      26325.8,
+      25669.35,
+      25222.4,
+      25116.25,
+      24589.15
+    ],
+    "support": [
+      24462.4,
+      24589.15,
+      25222.4,
+      25669.35,
+      25842.95
+    ]
+  },
+  "level_profiles": {
+    "24589.15": {
+      "test_count": 3,
+      "first_tested": "2025-05-01 18:30:00",
+      "last_tested": "2025-09-29 18:30:00",
+      "test_history": [
+        {
+          "date": "2025-05-01 18:30:00",
+          "type": "resistance",
+          "outcome": "REJECTION_DOWN",
+          "close_move_pts": -338.7000000000007,
+          "close_move_pct": -1.3774367963105707
+        },
+        {
+          "date": "2025-06-02 18:30:00",
+          "type": "support",
+          "outcome": "BOUNCE_UP",
+          "close_move_pts": 561.75,
+          "close_move_pct": 2.2845441993724873
+        },
+        {
+          "date": "2025-09-29 18:30:00",
+          "type": "support",
+          "outcome": "BOUNCE_UP",
+          "close_move_pts": 435.0500000000029,
+          "close_move_pct": 1.769276286492225
+        }
+      ],
+      "success_rate": 66.66666666666666,
+      "level_strength": "MODERATE",
+      "avg_response_pts": 219.36666666666738,
+      "test_types": [
+        "support",
+        "resistance"
+      ]
+    },
+    "25116.25": {
+      "test_count": 3,
+      "first_tested": "2025-05-14 18:30:00",
+      "last_tested": "2025-08-20 18:30:00",
+      "test_history": [
+        {
+          "date": "2025-05-14 18:30:00",
+          "type": "resistance",
+          "outcome": "REJECTION_DOWN",
+          "close_move_pts": -452.3999999999978,
+          "close_move_pct": -1.8012243069725689
+        },
+        {
+          "date": "2025-05-25 18:30:00",
+          "type": "resistance",
+          "outcome": "REJECTION_DOWN",
+          "close_move_pts": -284.5500000000029,
+          "close_move_pct": -1.132931866819302
+        },
+        {
+          "date": "2025-08-20 18:30:00",
+          "type": "resistance",
+          "outcome": "REJECTION_DOWN",
+          "close_move_pts": -656.9000000000015,
+          "close_move_pct": -2.6154382123127515
+        }
+      ],
+      "success_rate": 0.0,
+      "level_strength": "WEAK",
+      "avg_response_pts": -464.6166666666674,
+      "test_types": [
+        "resistance"
+      ]
+    },
+    "24462.4": {
+      "test_count": 3,
+      "first_tested": "2025-05-21 18:30:00",
+      "last_tested": "2025-08-28 18:30:00",
+      "test_history": [
+        {
+          "date": "2025-05-21 18:30:00",
+          "type": "support",
+          "outcome": "BOUNCE_UP",
+          "close_move_pts": 223.89999999999782,
+          "close_move_pct": 0.915282229053559
+        },
+        {
+          "date": "2025-06-12 18:30:00",
+          "type": "support",
+          "outcome": "BOUNCE_UP",
+          "close_move_pts": 393.8000000000029,
+          "close_move_pct": 1.6098175158610883
+        },
+        {
+          "date": "2025-08-28 18:30:00",
+          "type": "support",
+          "outcome": "BOUNCE_UP",
+          "close_move_pts": 314.15000000000146,
+          "close_move_pct": 1.284215776048145
+        }
+      ],
+      "success_rate": 100.0,
+      "level_strength": "STRONG",
+      "avg_response_pts": 310.6166666666674,
+      "test_types": [
+        "support"
+      ]
+    },
+    "25222.4": {
+      "test_count": 3,
+      "first_tested": "2025-06-10 18:30:00",
+      "last_tested": "2025-11-06 18:30:00",
+      "test_history": [
+        {
+          "date": "2025-06-10 18:30:00",
+          "type": "resistance",
+          "outcome": "REJECTION_DOWN",
+          "close_move_pts": -329.3500000000022,
+          "close_move_pct": -1.30578374777976
+        },
+        {
+          "date": "2025-07-23 18:30:00",
+          "type": "resistance",
+          "outcome": "REJECTION_DOWN",
+          "close_move_pts": -293.75,
+          "close_move_pct": -1.1646393681806648
+        },
+        {
+          "date": "2025-11-06 18:30:00",
+          "type": "support",
+          "outcome": "BOUNCE_UP",
+          "close_move_pts": 417.75,
+          "close_move_pct": 1.6562658589190558
+        }
+      ],
+      "success_rate": 33.33333333333333,
+      "level_strength": "WEAK",
+      "avg_response_pts": -68.45000000000073,
+      "test_types": [
+        "support",
+        "resistance"
+      ]
+    },
+    "26325.8": {
+      "test_count": 3,
+      "first_tested": "2025-11-30 18:30:00",
+      "last_tested": "2026-01-04 18:30:00",
+      "test_history": [
+        {
+          "date": "2025-11-30 18:30:00",
+          "type": "resistance",
+          "outcome": "REJECTION_DOWN",
+          "close_move_pts": -215.20000000000073,
+          "close_move_pct": -0.8174490423842798
+        },
+        {
+          "date": "2025-12-23 18:30:00",
+          "type": "resistance",
+          "outcome": "REJECTION_DOWN",
+          "close_move_pts": 4.450000000000728,
+          "close_move_pct": 0.016903569882019645
+        },
+        {
+          "date": "2026-01-04 18:30:00",
+          "type": "resistance",
+          "outcome": "REJECTION_DOWN",
+          "close_move_pts": -460.0499999999993,
+          "close_move_pct": -1.7475252413981692
+        }
+      ],
+      "success_rate": 0.0,
+      "level_strength": "WEAK",
+      "avg_response_pts": -223.59999999999977,
+      "test_types": [
+        "resistance"
+      ]
+    },
+    "23807.3": {
+      "test_count": 2,
+      "first_tested": "2025-02-04 18:30:00",
+      "last_tested": "2025-03-24 18:30:00",
+      "test_history": [
+        {
+          "date": "2025-02-04 18:30:00",
+          "type": "resistance",
+          "outcome": "REJECTION_DOWN",
+          "close_move_pts": -651.0499999999993,
+          "close_move_pct": -2.7346654177500147
+        },
+        {
+          "date": "2025-03-24 18:30:00",
+          "type": "resistance",
+          "outcome": "REJECTION_DOWN",
+          "close_move_pts": -336.3000000000029,
+          "close_move_pct": -1.4125919360868429
+        }
+      ],
+      "success_rate": 0.0,
+      "level_strength": "WEAK",
+      "avg_response_pts": -493.6750000000011,
+      "test_types": [
+        "resistance"
+      ]
+    },
+    "25669.35": {
+      "test_count": 2,
+      "first_tested": "2025-06-29 18:30:00",
+      "last_tested": "2025-12-10 18:30:00",
+      "test_history": [
+        {
+          "date": "2025-06-29 18:30:00",
+          "type": "resistance",
+          "outcome": "REJECTION_DOWN",
+          "close_move_pts": -55.75,
+          "close_move_pct": -0.2171850864942042
+        },
+        {
+          "date": "2025-12-10 18:30:00",
+          "type": "support",
+          "outcome": "BOUNCE_UP",
+          "close_move_pts": -83.0,
+          "close_move_pct": -0.32334281935459996
+        }
+      ],
+      "success_rate": 50.0,
+      "level_strength": "MODERATE",
+      "avg_response_pts": -69.375,
+      "test_types": [
+        "support",
+        "resistance"
+      ]
+    },
+    "25842.95": {
+      "test_count": 2,
+      "first_tested": "2025-11-25 18:30:00",
+      "last_tested": "2025-12-29 18:30:00",
+      "test_history": [
+        {
+          "date": "2025-11-25 18:30:00",
+          "type": "support",
+          "outcome": "BOUNCE_UP",
+          "close_move_pts": -219.29999999999927,
+          "close_move_pct": -0.8485873323285433
+        },
+        {
+          "date": "2025-12-29 18:30:00",
+          "type": "support",
+          "outcome": "BOUNCE_UP",
+          "close_move_pts": 239.85000000000218,
+          "close_move_pct": 0.9281061179161132
+        }
+      ],
+      "success_rate": 100.0,
+      "level_strength": "STRONG",
+      "avg_response_pts": 10.275000000001455,
+      "test_types": [
+        "support"
+      ]
+    }
+  },
+  "level_statistics": {
+    "total_distinct_levels": 8,
+    "total_level_tests": 21,
+    "overall_success_rate": 42.857142857142854,
+    "avg_tests_per_level": 2.625,
+    "strongest_level": 24462.4,
+    "most_tested_level": 24589.15
+  },
+  "volatility": {
+    "annualized_volatility": 0.11503945202327027,
+    "annualized_volatility_pct": 11.503945202327028,
+    "daily_avg_move_pct": 0.5306267023981648,
+    "max_single_day_gain_pct": 3.8183105631456105,
+    "max_single_day_loss_pct": -3.243256223135693,
+    "atr_90day_avg": 190.96777777777797
+  },
+  "iv_metrics": {
+    "iv_estimate": 0.11802230526569835,
+    "iv_estimate_pct": 11.802230526569835,
+    "iv_52w_high_estimate": 35.0,
+    "iv_52w_low_estimate": 12.0,
+    "iv_current_rank": "MEDIUM"
+  },
+  "recent_metrics": {
+    "last_90_days_high": 26373.2,
+    "last_90_days_low": 24587.7,
+    "last_30_days_high": 26373.2,
+    "last_30_days_low": 24919.8,
+    "last_10_days_avg_volume": 392004483.7
+  }
+}
