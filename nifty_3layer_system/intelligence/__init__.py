@@ -62,6 +62,23 @@ from .mtf_trend_analyzer import (
     TimeframeAnalysis
 )
 
+from .market_condition_classifier import (
+    MarketCondition,
+    SetupQuality,
+    MarketClassification,
+    classify_market_condition,
+    classify_setup_quality,
+    get_dynamic_parameters,
+    get_expected_move,
+    format_classification
+)
+
+from .metrics_repository import (
+    MetricsRepository,
+    get_database_stats,
+    query_best_conditions
+)
+
 __all__ = [
     'ScenarioClassifier',
     'ScenarioType',
@@ -78,5 +95,16 @@ __all__ = [
     'MTFTrendAnalyzer',
     'MTFConsensusResult',
     'TrendType',
-    'TimeframeAnalysis'
+    'TimeframeAnalysis',
+    'MarketCondition',
+    'SetupQuality',
+    'MarketClassification',
+    'classify_market_condition',
+    'classify_setup_quality',
+    'get_dynamic_parameters',
+    'get_expected_move',
+    'format_classification',
+    'MetricsRepository',
+    'get_database_stats',
+    'query_best_conditions'
 ]

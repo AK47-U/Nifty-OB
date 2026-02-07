@@ -1,190 +1,178 @@
-# NIFTY 3-Layer Trading System
+# NIFTY Options Trading System with ML
 
-**Status:** 🧪 Experimental | **Development:** Active
-
-A comprehensive, modular 3-layer trading architecture for NIFTY 50 options. Decoupled design for maximum flexibility and extensibility.
-
-## Architecture
-
-```
-LAYER 1: WHERE (Level & Context Engine)
-  ├─ CPR calculation (Central Pivot Range)
-  ├─ Historical level loading
-  ├─ Proximity detection
-  └─ Zone classification
-
-      ↓
-
-LAYER 2: WHEN (Signal & Momentum Engine)
-  ├─ EMA alignment (5 > 12 > 20)
-  ├─ VWAP alignment
-  ├─ RSI momentum
-  ├─ MACD histogram
-  └─ Multi-timeframe validation
-
-      ↓
-
-LAYER 3: WHAT (Execution & Greeks Engine)
-  ├─ Strike selection by Delta
-  ├─ Greeks calculation
-  ├─ Liquidity assessment
-  ├─ Risk management
-  └─ Position sizing
-```
-
-## Features
-
-- **Decoupled Design:** Each layer independent and testable
-- **Multi-timeframe Analysis:** 5-min, 15-min, and daily candles
-- **Technical Confluence:** 5-point validation for strong signals
-- **Greeks-based Strike Selection:** Delta, Gamma, Vega, Theta
-- **Risk Management:** ATR-based stops, daily loss limits
-- **Real Market Data:** Integrated with yfinance
+**78.4% accuracy ML model for profitable NIFTY options scalping**
 
 ## Quick Start
 
-### Installation
-
 ```bash
+# 1. Install dependencies
 pip install -r requirements.txt
+
+# 2. Configure Dhan API credentials in .env
+cp .env.example .env
+# Edit .env with your Dhan API credentials
+
+# 3. Run the system
+python levels_monitor_adaptive.py
 ```
 
-### Basic Usage
+## System Overview
 
-```python
-from orchestrator import TradingOrchestrator
-import yfinance as yf
+### What It Does
+- Predicts profitable 5+ point moves in NIFTY (15-min horizon)
+- Generates option trading levels with entry, target, and stop-loss
+- Applies 5 adaptive filters to prevent bad trades
+- Sends Telegram alerts with complete trade setup
+- Auto-adjusts parameters based on past failures
 
-# Initialize
-orchestrator = TradingOrchestrator(symbol='^NSEI', capital=15000)
+### Key Features
+- **78.4% Accuracy** - Predicts profitable moves (not just direction)
+- **74 ML Features** - Technical indicators, CPR, VWAP, microstructure, volatility regime
+- **Capital Protection** - Max Rs.900 daily loss, 13-point SL limit
+- **5 Adaptive Filters**:
+  1. Trend Alignment (15-min EMA)
+  2. Entry Quality (Support/Resistance proximity)
+  3. Failure Detection (learns from past SL hits)
+  4. Parameter Learning (auto-adjusts confidence thresholds)
+  5. Position Sizing (enforces risk limits)
 
-# Fetch data
-daily = yf.download('^NSEI', period='1y', interval='1d', progress=False)
-intraday = yf.download('^NSEI', period='5d', interval='5m', progress=False)
-trend = yf.download('^NSEI', period='5d', interval='15m', progress=False)
-
-# Get complete signal
-signal = orchestrator.generate_signal(daily, intraday, trend)
-
-print(f"Signal: {signal.direction}")
-print(f"Recommended Strike: {signal.strike}")
-print(f"Greeks: Delta={signal.delta:.2f}, Theta={signal.theta:.2f}")
-```
-
-## Layer Details
-
-### Layer 1: Level & Context Engine (`layers/level_engine.py`)
-
-Detects where price is relative to support/resistance:
+### Architecture
 
 ```
-- CPR (Central Pivot Range) calculation
-- Support/Resistance proximity detection
-- Zone classification (above_cpr, inside_cpr, below_cpr)
-- Historical level integration
+levels_monitor_adaptive.py (Main Loop)
+├── ml_models/
+│   ├── trading_levels_generator.py (Converts ML → Trading levels)
+│   ├── live_predictor.py (XGBoost model inference)
+│   ├── feature_engineer.py (74 features calculation)
+│   ├── data_extractor.py (Fetches data from Dhan API)
+│   └── real_option_fetcher.py (Gets real option premiums)
+├── intelligence/
+│   ├── trend_analyzer.py (15-min trend filter)
+│   ├── entry_quality_filter.py (S/R proximity check)
+│   ├── failure_analyzer.py (Learns from past SL hits)
+│   ├── parameter_learner.py (Auto-adjusts thresholds)
+│   └── position_sizer.py (Enforces capital limits)
+├── integrations/
+│   └── dhan_client.py (Dhan API wrapper)
+└── config/
+    └── settings.py (System configuration)
 ```
 
-### Layer 2: Signal & Momentum Engine (`layers/signal_engine.py`)
+## Model Details
 
-Validates 5 technical conditions:
+- **Type**: XGBoost Classifier
+- **Target**: Profitable 5+ point moves (YES/NO)
+- **Training**: 4,700 samples (90 days of 5-min NIFTY data)
+- **Features**: 74 total
+  - Technical: RSI, MACD, Bollinger Bands, ATR, EMA, VWAP
+  - CPR: Central Pivot Range (TC, BC, Pivot, Width)
+  - Microstructure: Order flow, tick direction, spread
+  - Volatility: Garman-Klass, Parkinson, Vol-of-Vol
+  - Support/Resistance: Distance, touches, proximity
+  - Gap/Open: Day open tracking, gap detection
+  - Options-derived: PCR, OI skew, IV skew
 
-```
-1. EMA Alignment - Price & EMA trend alignment
-2. VWAP Alignment - Price position relative to VWAP
-3. RSI Momentum - Overbought/oversold detection
-4. MACD Histogram - Momentum confirmation
-5. MTF Alignment - Timeframe agreement (5m & 15m)
-```
+## Risk Management
 
-Signal Strength: 1/5 (weak) to 5/5 (strong)
-
-### Layer 3: Execution & Greeks Engine (`layers/execution_engine.py`)
-
-Strike selection and risk management:
-
-```
-- Black-Scholes Greeks calculation
-- Strike selection by Delta (0.50-0.60 target)
-- Liquidity scoring (volume + OI)
-- Risk/reward validation
-- Position sizing based on capital
-```
-
-## Data Sources
-
-- **Primary:** yfinance (Yahoo Finance)
-- **Candles:** 1-year daily + 5-day intraday (5min & 15min)
-- **Greeks:** Black-Scholes model (calculated)
-- **Option Chain:** Can integrate with Dhan API, broker APIs, or NSE web scraping
-
-## File Structure
-
-```
-nifty_3layer_system/
-├── orchestrator.py                 # Main coordinator
-├── layers/
-│   ├── level_engine.py            # Layer 1: WHERE
-│   ├── signal_engine.py           # Layer 2: WHEN
-│   └── execution_engine.py        # Layer 3: WHAT
-├── indicators/
-│   └── technical.py               # EMA, RSI, MACD, VWAP, ATR
-├── config/
-│   └── settings.py                # Configurable parameters
-├── data/
-│   └── levels_NIFTY.csv           # Historical levels
-└── requirements.txt
-```
+- **Total Capital**: Rs.15,000
+- **Daily Loss Limit**: Rs.900 (6% of capital)
+- **Max Stop Loss**: 13 points (Rs.845 per trade)
+- **Max Trades/Day**: 2
+- **Lot Size**: 65 (NIFTY options)
+- **Risk:Reward**: 1:1.3 minimum
 
 ## Configuration
 
-Edit `config/settings.py` to customize:
+Edit `config/settings.py` or `.env`:
 
 ```python
-# Capital
-CAPITAL = 15000
+# Dhan API
+DHAN_CLIENT_ID = "your_client_id"
+DHAN_ACCESS_TOKEN = "your_access_token"
 
-# Risk parameters
-ATR_MULTIPLIER = 0.50
-DAILY_LOSS_LIMIT = 5000
+# Telegram
+TELEGRAM_BOT_TOKEN = "your_bot_token"
+TELEGRAM_CHAT_ID = "your_chat_id"
 
-# Technical indicators
-EMA_PERIODS = [5, 12, 20, 50, 200]
-RSI_PERIOD = 14
-MACD_FAST = 12
-MACD_SLOW = 26
+# Risk Management
+MAX_DAILY_LOSS = 900
+MAX_TRADES_PER_DAY = 2
+LOT_SIZE = 65
 ```
 
-## Testing
+## Output Example
 
-Run the complete system:
+```
+📡 ITERATION #1 - 2026-02-07 09:30:00 IST
+🔄 Fetching 5 days of 5-min NIFTY candles...
+✓ Got 376 candles
+
+🧠 Running ML prediction (78.4% accuracy - profitable moves)...
+✓ Prediction: SELL @ 72.3% confidence | Action: SELL
+
+💰 Checking position sizing & capital constraints...
+   ✅ CAN TRADE: 2 slots left, ₹900 loss available
+   ✅ Position valid: 13.0 pt SL = ₹845 loss
+
+✅ ALL FILTERS PASSED - SIGNAL READY TO TRADE
+
+🎯 STRIKE & DIRECTION:
+   Strike:                 25650 PE
+   Direction:              SELL
+
+💰 PREMIUM LEVELS:
+   📥 ENTRY PREMIUM:       ₹112.90
+   ✅ TARGET PREMIUM:      ₹132.90 (+₹1,300 profit)
+   🛑 STOP LOSS PREMIUM:   ₹97.90 (-₹975 loss)
+   
+💼 P&L CALCULATION (Lot = 65):
+   Capital Required:       ₹7,338.50
+   Risk:Reward Ratio:      1:1.33
+```
+
+## Files Structure
+
+### Core Files
+- `levels_monitor_adaptive.py` - Main monitoring loop
+- `dhan_api_client.py` - Dhan API integration
+- `telegram_notifier.py` - Telegram alerts
+- `requirements.txt` - Python dependencies
+
+### Directories
+- `ml_models/` - ML model, feature engineering, data extraction
+- `intelligence/` - 5 adaptive filters
+- `integrations/` - External API integrations
+- `config/` - System configuration
+- `data/` - Database and historical data
+- `models/` - Trained XGBoost model
+
+## Requirements
+
+- Python 3.10+
+- Dhan API account
+- Telegram bot (for alerts)
+- 90 days of historical data (auto-fetched)
+
+## Training
+
+Model is pre-trained. To retrain:
+
 ```bash
-python orchestrator.py
+python ml_models/train_pipeline.py
 ```
 
-## Development Notes
+This will:
+1. Fetch 90 days of 5-min NIFTY data from Dhan
+2. Generate 74 features
+3. Train XGBoost on profitable 5+ point moves
+4. Save model to `models/xgboost_direction_model.pkl`
 
-- ✅ All layers individually testable
-- ✅ Real market data integration working
-- ✅ Layer 1 & 2 validated with real NIFTY data
-- ✅ Layer 3 tested with Black-Scholes Greeks
-- ⏳ Requires option chain integration for live trading
+Training takes ~2-3 minutes.
 
-## Next Steps
+## License
 
-- [ ] Integrate real option chain (Dhan API or NSE scraper)
-- [ ] Add backtesting framework
-- [ ] Implement live trading mode
-- [ ] Add portfolio management
-- [ ] Create monitoring dashboard
+MIT
 
-## Version History
+## Disclaimer
 
-- **v0.1** - Initial development (Jan 2026)
-- **v0.2** - Real data integration (Jan 2026)
-- **v0.3** - Series bugs fixed (Jan 2026)
-
----
-
-**Last Updated:** January 21, 2026  
-**Maintainer:** Scalping Engine Team  
-**Status:** Ready for backtesting | Beta for live trading
+This is for educational purposes only. Trading involves risk. Past performance does not guarantee future results.

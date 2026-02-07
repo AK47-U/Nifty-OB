@@ -4,6 +4,7 @@ DHAN DATA MANAGER: High-level data abstraction
 - Returns ready-to-use DataFrames
 - Handles instrument lookups and strikes
 - Bridges Dhan API → orchestrator layers
+- Multi-instrument support (NIFTY, SENSEX, BANKNIFTY, etc.)
 """
 
 import pandas as pd
@@ -42,25 +43,36 @@ class DhanDataManager:
     - Fetches and caches candles
     - Fetches and caches option chains
     - Returns structured data for layers
+    - Supports multiple instruments (NIFTY, SENSEX, BANKNIFTY)
     """
     
-    def __init__(self, client: Optional[DhanAPIClient] = None, cache_dir: str = '.dhan_cache'):
+    def __init__(self, client: Optional[DhanAPIClient] = None, cache_dir: str = '.dhan_cache',
+                 instrument_config: Optional[Dict] = None):
         """
         Initialize data manager
         
         Args:
             client: DhanAPIClient instance (creates if None)
             cache_dir: Directory for persistent cache
+            instrument_config: Instrument configuration dict with security_id, exchange_segment, etc.
         """
         self.client = client or DhanAPIClient()
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(exist_ok=True)
         
+        # Instrument configuration
+        self.instrument_config = instrument_config or {
+            'security_id': '13',
+            'exchange_segment': 'IDX_I',
+            'instrument_type': 'OPTIDX',
+            'name': 'NIFTY'
+        }
+        
         # In-memory cache
         self._candle_cache: Dict[str, pd.DataFrame] = {}
         self._option_chain_cache: Dict[str, Dict] = {}
         
-        logger.info(f"✓ DhanDataManager initialized | Cache: {self.cache_dir}")
+        logger.info(f"✓ DhanDataManager initialized | Instrument: {self.instrument_config['name']} | Cache: {self.cache_dir}")
 
     @staticmethod
     def _normalize_iv(raw_iv: Optional[float]) -> float:
@@ -103,19 +115,18 @@ class DhanDataManager:
         Returns:
             DataFrame with OHLCV
         """
-        cache_key = f"nifty_{interval}m_{days}d"
+        instrument_name = self.instrument_config.get('name', 'NIFTY').lower()
+        cache_key = f"{instrument_name}_{interval}m_{days}d"
         
         if cache_key in self._candle_cache:
             logger.debug(f"Using in-memory candle cache: {cache_key}")
             return self._candle_cache[cache_key]
         
-        # NIFTY is an INDEX with segment IDX_I (not NSE_EQ which is EQUITY)
-        nifty = {'security_id': '13', 'exchange': 'IDX_I', 'instrument': 'OPTIDX'}
-        
+        # Use instrument config parameters
         df = self.client.get_historical_candles(
-            security_id=nifty['security_id'],
-            exchange_segment=nifty['exchange'],
-            instrument=nifty['instrument'],
+            security_id=self.instrument_config['security_id'],
+            exchange_segment=self.instrument_config['exchange_segment'],
+            instrument=self.instrument_config['instrument_type'],
             interval=interval,
             days=days
         )
@@ -123,9 +134,9 @@ class DhanDataManager:
         self._candle_cache[cache_key] = df
         return df
     
-    def get_nifty_daily(self, days: int = 365) -> pd.DataFrame:
+    def get_daily_candles(self, days: int = 365) -> pd.DataFrame:
         """
-        Fetch NIFTY daily candles
+        Fetch daily candles for configured instrument
         
         Args:
             days: Lookback period
@@ -133,19 +144,18 @@ class DhanDataManager:
         Returns:
             DataFrame with daily OHLCV
         """
-        cache_key = f"nifty_daily_{days}d"
+        instrument_name = self.instrument_config.get('name', 'NIFTY').lower()
+        cache_key = f"{instrument_name}_daily_{days}d"
         
         if cache_key in self._candle_cache:
             logger.debug(f"Using in-memory daily cache: {cache_key}")
             return self._candle_cache[cache_key]
         
-        # NIFTY is an INDEX
-        nifty = {'security_id': '13', 'exchange': 'IDX_I', 'instrument': 'OPTIDX'}
-        
+        # Use instrument config
         df = self.client.get_daily_candles(
-            security_id=nifty['security_id'],
-            exchange_segment=nifty['exchange'],
-            instrument=nifty['instrument'],
+            security_id=self.instrument_config['security_id'],
+            exchange_segment=self.instrument_config['exchange_segment'],
+            instrument=self.instrument_config['instrument_type'],
             days=days
         )
         
@@ -162,16 +172,17 @@ class DhanDataManager:
         Returns:
             Dict[strike, Dict[side, OptionStrike]]
         """
-        cache_key = f"nifty_optionchain_{expiry}"
+        instrument_name = self.instrument_config.get('name', 'NIFTY').lower()
+        cache_key = f"{instrument_name}_optionchain_{expiry}"
         
         if cache_key in self._option_chain_cache:
             logger.debug(f"Using in-memory option chain cache: {cache_key}")
             return self._option_chain_cache[cache_key]
         
-        # For option chain API, use security ID 13 (not 99926000)
+        # Use instrument config for option chain
         raw_chain = self.client.get_option_chain(
-            underlying_scrip=13,  # NIFTY
-            underlying_seg='IDX_I',
+            underlying_scrip=int(self.instrument_config['security_id']),
+            underlying_seg=self.instrument_config['exchange_segment'],
             expiry=expiry
         )
         
@@ -251,10 +262,10 @@ class DhanDataManager:
         Returns:
             Expiry date in YYYY-MM-DD format
         """
-        # For option chain, use security ID 13 (NIFTY) not 99926000
+        # Use instrument config for expiry list
         expiries = self.client.get_expiry_list(
-            underlying_scrip=13,  # NIFTY
-            underlying_seg='IDX_I'
+            underlying_scrip=int(self.instrument_config['security_id']),
+            underlying_seg=self.instrument_config['exchange_segment']
         )
         
         if not expiries:
@@ -269,6 +280,58 @@ class DhanDataManager:
         nearest = future_expiries[0]
         logger.info(f"Nearest expiry: {nearest}")
         return nearest
+    
+    def get_current_weekly_expiry(self) -> str:
+        """
+        Get CURRENT WEEK's Thursday expiry (weekly options)
+        
+        Logic:
+        - If today is Mon-Wed: Get THIS Thursday
+        - If today is Thu-Sun: Get NEXT Thursday (this week's expired or expires today)
+        
+        Returns:
+            Expiry date in YYYY-MM-DD format
+        """
+        today = datetime.now().date()
+        weekday = today.weekday()  # 0=Mon, 3=Thu, 6=Sun
+        
+        # Calculate days until Thursday
+        if weekday < 3:  # Mon(0), Tue(1), Wed(2) → Get THIS Thursday
+            days_to_thursday = 3 - weekday
+        elif weekday == 3:  # Thursday → Check if still valid, else get next
+            days_to_thursday = 0  # Try this Thursday first
+        else:  # Fri(4), Sat(5), Sun(6) → Get NEXT Thursday
+            days_to_thursday = 3 - weekday + 7  # e.g., if Fri: 3-4+7=6 days
+        
+        current_weekly = today + timedelta(days=days_to_thursday)
+        
+        # Get available expiries and find matching weekly Thursday
+        expiries = self.client.get_expiry_list(
+            underlying_scrip=int(self.instrument_config['security_id']),
+            underlying_seg=self.instrument_config['exchange_segment']
+        )
+        
+        if not expiries:
+            raise ValueError("No expiries available")
+        
+        # Convert to dates for comparison
+        expiry_dates = [datetime.strptime(e, '%Y-%m-%d').date() for e in expiries]
+        
+        # Check if current weekly Thursday is available
+        if current_weekly in expiry_dates:
+            result = current_weekly.strftime('%Y-%m-%d')
+            logger.info(f"Current weekly expiry: {result} ({current_weekly.strftime('%A')})")
+            return result
+        
+        # If not available, get next available expiry after today
+        future_expiries = [e for e in expiry_dates if e > today]
+        if future_expiries:
+            nearest = min(future_expiries)
+            result = nearest.strftime('%Y-%m-%d')
+            logger.info(f"Current weekly {current_weekly} not available. Using nearest: {result}")
+            return result
+        
+        raise ValueError("No future expiries available for current week")
     
     def find_strike_by_delta(
         self,

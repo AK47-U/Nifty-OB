@@ -569,7 +569,10 @@ class OptionsIntelligence:
             direction = "NEUTRAL"
         
         total_activity = sum([large_call_bids, large_call_asks, large_put_bids, large_put_asks])
-        conviction = min(1.0, total_activity / 10000)  # Normalize
+        # Normalize conviction: total_activity ranges from 0 to 30,000+ typically
+        # Conviction represents how much institutional activity exists relative to normal levels
+        # 0 = no activity, 0.5 = ~5000 activity, 1.0 = very high activity (>10000)
+        conviction = min(1.0, max(0.0, total_activity / 20000.0))  # Spread across wider range
         
         # Find concentration
         concentration = max(strikes.keys(), key=lambda s: strikes[s].ce_oi + strikes[s].pe_oi)

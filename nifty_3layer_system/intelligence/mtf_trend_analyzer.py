@@ -323,6 +323,86 @@ class MTFTrendAnalyzer:
             guidance=guidance
         )
 
+    def compute_consensus_intraday(
+        self,
+        analysis_5m: TimeframeAnalysis,
+        analysis_30m: TimeframeAnalysis,
+        analysis_15m: TimeframeAnalysis
+    ) -> MTFConsensusResult:
+        """
+        Compute consensus from intraday timeframes only (5m, 30m, 15m).
+        Uses different weights than full MTF - emphasizes 15m and 30m for intraday structure.
+        """
+        analyses = {
+            "5m": analysis_5m,
+            "30m": analysis_30m,
+            "15m": analysis_15m
+        }
+
+        # Detect if short-term (5m) is mixed
+        short_tf_mixed = analysis_5m.ema_signal.alignment == "MIXED"
+
+        # Base weights for intraday: 30m is the primary structure, 15m confirms, 5m is entry signal
+        weights = {
+            "5m": 0.20,
+            "30m": 0.50,
+            "15m": 0.30
+        }
+
+        # If 5m is mixed, reduce its weight
+        if short_tf_mixed:
+            weights["5m"] *= 0.5
+            weights["30m"] *= 1.2
+            weights["15m"] *= 1.1
+
+        # Normalize weights
+        total_weight = sum(weights.values())
+        weights = {k: v / total_weight for k, v in weights.items()}
+
+        # Compute weighted consensus score
+        consensus_score = sum(
+            analyses[tf].trend_score * weights[tf]
+            for tf in analyses.keys()
+        )
+        consensus_score = max(-1, min(1, consensus_score))
+
+        # Determine trend
+        if consensus_score > 0.3:
+            trend = TrendType.BULLISH
+        elif consensus_score < -0.3:
+            trend = TrendType.BEARISH
+        else:
+            trend = TrendType.RANGE_BOUND
+
+        # Find primary driver (highest confidence * weight)
+        driver_scores = {
+            tf: analyses[tf].confidence * weights[tf]
+            for tf in analyses.keys()
+        }
+        primary_driver = max(driver_scores, key=driver_scores.get)
+
+        # Compute overall confidence (weighted average)
+        weighted_conf = sum(
+            analyses[tf].confidence * weights[tf]
+            for tf in analyses.keys()
+        )
+        overall_confidence = max(0, min(1, weighted_conf))
+
+        # Guidance text
+        guidance = (
+            f"Intraday analysis (5m/15m/30m): {trend.value}. "
+            f"Primary driver: {primary_driver}. Confidence: {overall_confidence:.0%}."
+        )
+
+        return MTFConsensusResult(
+            trend=trend,
+            consensus_score=consensus_score,
+            confidence=overall_confidence,
+            primary_driver_tf=primary_driver,
+            analysis_by_tf=analyses,
+            guidance=guidance
+        )
+
     def analyze_all(
         self,
         df5m: pd.DataFrame,
@@ -359,3 +439,34 @@ class MTFTrendAnalyzer:
 
         # Compute consensus
         return self.compute_consensus(a5, a30, a15, a60, ad)
+    def analyze_intraday(
+        self,
+        df5m: pd.DataFrame,
+        df30m: pd.DataFrame,
+        df15m: pd.DataFrame,
+        ti  # TechnicalIndicators instance
+    ) -> MTFConsensusResult:
+        """
+        Intraday-only analysis: uses 5m, 30m, 15m timeframes (skip 60m/daily).
+        Better for scalping - focuses on immediate market structure.
+        """
+        # Compute indicators if missing
+        for df_name, df in [("5m", df5m), ("30m", df30m), ("15m", df15m)]:
+            if df.empty:
+                continue
+            for p in [5, 12, 20, 50, 100, 200]:
+                if f'ema_{p}' not in df.columns:
+                    df[f'ema_{p}'] = ti.calculate_ema(df['close'], p)
+            if 'rsi' not in df.columns:
+                df['rsi'] = ti.calculate_rsi(df['close'], 14)
+            if 'hist' not in df.columns:
+                macd_result = ti.calculate_macd(df['close'], 12, 26, 9)
+                df['hist'] = macd_result['Histogram']
+
+        # Analyze each timeframe
+        a5 = self.analyze_timeframe(df5m, "5m")
+        a30 = self.analyze_timeframe(df30m, "30m")
+        a15 = self.analyze_timeframe(df15m, "15m")
+
+        # Compute consensus from intraday timeframes only
+        return self.compute_consensus_intraday(a5, a30, a15)
