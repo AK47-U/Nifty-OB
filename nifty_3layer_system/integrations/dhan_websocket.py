@@ -81,7 +81,8 @@ class DhanWebSocket:
         """
         self.access_token = access_token
         self.client_id = client_id
-        self.ws_url = "wss://api-feed.dhan.co?version=2"
+        # Build URL with query parameters (auth in URL, not headers)
+        self.ws_url = f"wss://api-feed.dhan.co?version=2&token={access_token}&clientId={client_id}&authType=2"
         
         self.websocket = None
         self.is_connected = False
@@ -97,22 +98,20 @@ class DhanWebSocket:
     async def connect(self):
         """Establish WebSocket connection"""
         try:
-            logger.info(f"Connecting to {self.ws_url}...")
+            logger.info(f"Connecting to Dhan WebSocket Feed...")
             
-            headers = {
-                "Authorization": f"Bearer {self.access_token}",
-                "client-id": self.client_id
+            connect_kwargs = {
+                "ping_interval": 30,
+                "ping_timeout": 10,
             }
-            
+
             self.websocket = await websockets.connect(
                 self.ws_url,
-                extra_headers=headers,
-                ping_interval=30,
-                ping_timeout=10
+                **connect_kwargs
             )
             
             self.is_connected = True
-            logger.success("WebSocket connected successfully")
+            logger.success("WebSocket connected successfully ✓")
             
             # Start message receiver
             asyncio.create_task(self._receive_messages())

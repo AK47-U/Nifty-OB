@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NIFTY/SENSEX Levels Dashboard</title>
+  <link rel="stylesheet" href="/static/styles.css?v=5" />
+  <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="brand">
+        <div class="logo">⚡</div>
+        <div>
+          <h1>NIFTY/SENSEX Levels Dashboard</h1>
+          <p>Live candlestick chart with ML-based levels</p>
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="signal-badge">
+          <span class="label">Signal</span>
+          <span id="signalDisplay" class="signal-value">--</span>
+        </div>
+        <div class="price-card">
+          <span class="label">Last Price</span>
+          <span id="lastPrice" class="value">--</span>
+        </div>
+        <div class="price-card">
+          <span class="label">Updated</span>
+          <span id="lastUpdated" class="value">--</span>
+        </div>
+      </div>
+    </header>
+
+    <section class="controls">
+      <div class="segmented">
+        <button class="seg-btn active" data-symbol="NIFTY">NIFTY</button>
+        <button class="seg-btn" data-symbol="SENSEX">SENSEX</button>
+      </div>
+      <div class="actions">
+        <button id="refreshBtn" class="primary">Generate Levels</button>
+      </div>
+    </section>
+
+    <section class="status">
+      <span id="statusText">🔴 Initializing live mode...</span>
+    </section>
+
+    <main class="main">
+      <section class="chart-card">
+        <div id="chart" class="chart"></div>
+        <div class="legend">
+          <div><span class="dot long"></span> LONG</div>
+          <div><span class="dot short"></span> SHORT</div>
+          <div><span class="dot entry"></span> ENTRY</div>
+          <div><span class="dot target"></span> TARGET</div>
+          <div><span class="dot sl"></span> STOPLOSS</div>
+        </div>
+      </section>
+
+      <section class="levels-card">
+        <h2>Trading Levels</h2>
+        <div class="levels-grid">
+          <div class="level-item">
+            <span class="label">Direction</span>
+            <span id="direction" class="value">--</span>
+          </div>
+          <div class="level-item">
+            <span class="label">Confidence</span>
+            <span id="confidence" class="value">--</span>
+          </div>
+          <div class="level-item">
+            <span class="label">Entry</span>
+            <span id="entry" class="value">--</span>
+          </div>
+          <div class="level-item">
+            <span class="label">Target</span>
+            <span id="target" class="value">--</span>
+          </div>
+          <div class="level-item">
+            <span class="label">Stop Loss</span>
+            <span id="stoploss" class="value">--</span>
+          </div>
+          <div class="level-item">
+            <span class="label">Risk:Reward</span>
+            <span id="rr" class="value">--</span>
+          </div>
+        </div>
+        <div class="meta">
+          <div><strong>Zone:</strong> <span id="zone">--</span></div>
+          <div><strong>Note:</strong> <span id="note">--</span></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/static/app.js?v=13"></script>
+</body>
+</html>

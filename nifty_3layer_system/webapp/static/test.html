@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Quick Test - NIFTY Data</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #111; color: #0f0; }
+        pre { background: #000; padding: 15px; border-radius: 5px; }
+        .success { color: #0f0; }
+        .error { color: #f00; }
+    </style>
+</head>
+<body>
+    <h1>Quick API Test</h1>
+    <div id="output"></div>
+    
+    <script>
+        const output = document.getElementById('output');
+        
+        async function test() {
+            output.innerHTML += '<h2>Testing /api/candles...</h2>';
+            try {
+                const res1 = await fetch('/api/candles?symbol=NIFTY&interval=5&days=5');
+                const data1 = await res1.json();
+                output.innerHTML += `<p class="success">✓ Candles: ${data1.candles.length} received</p>`;
+                output.innerHTML += `<pre>${JSON.stringify(data1, null, 2).substring(0, 500)}...</pre>`;
+            } catch (e) {
+                output.innerHTML += `<p class="error">✗ Error: ${e.message}</p>`;
+            }
+            
+            output.innerHTML += '<h2>Testing /api/levels...</h2>';
+            try {
+                const res2 = await fetch('/api/levels?symbol=NIFTY&interval=5&days=5');
+                const data2 = await res2.json();
+                output.innerHTML += `<p class="success">✓ Levels: ${data2.direction} at ${data2.entry}</p>`;
+                output.innerHTML += `<pre>${JSON.stringify(data2, null, 2)}</pre>`;
+            } catch (e) {
+                output.innerHTML += `<p class="error">✗ Error: ${e.message}</p>`;
+            }
+        }
+        
+        test();
+    </script>
+</body>
+</html>

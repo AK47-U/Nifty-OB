@@ -89,9 +89,9 @@ class LivePredictor:
             # Extract features
             X = df_prepared[self.feature_cols]
             
-            # Predict
-            prediction = self.model.predict(X)[0]  # 0 or 1
-            probabilities = self.model.predict_proba(X)[0]  # [prob_down, prob_up]
+            # Predict (preserve column order, bypass feature name validation issues)
+            prediction = self.model.predict(X, validate_features=False)[0]  # 0 or 1
+            probabilities = self.model.predict_proba(X, validate_features=False)[0]  # [prob_down, prob_up]
             
             # Interpret results
             down_prob = probabilities[0] * 100
