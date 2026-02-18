@@ -19,20 +19,26 @@
 body {
   background: var(--bg);
   color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
 }
 
 .app {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 24px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 16px;
-  margin-bottom: 20px;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-shrink: 0;
 }
 
 .brand {
@@ -129,16 +135,18 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 10px;
+  flex-shrink: 0;
 }
 
 .status {
   background: rgba(255, 255, 255, 0.04);
   color: var(--muted);
-  padding: 8px 12px;
-  border-radius: 10px;
-  margin-bottom: 12px;
-  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  font-size: 11px;
+  flex-shrink: 0;
 }
 
 .segmented {
@@ -175,21 +183,78 @@ body {
 }
 
 .main {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
+  display: flex;
   gap: 16px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  height: 100%;
 }
 
-.chart-card,
-.levels-card {
+.chart-card {
   background: var(--card);
   border-radius: 16px;
   padding: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+  flex: 1;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 320px;
+  min-width: 280px;
+  max-width: 350px;
+  overflow-y: auto;
+  max-height: calc(100vh - 100px);  /* Allow scrolling */
+}
+
+.levels-card {
+  background: var(--card);
+  border-radius: 16px;
+  padding: 12px;
+  flex-shrink: 0;
 }
 
 .chart {
   width: 100%;
-  height: 480px;
+  flex: 1;
+  min-height: 200px;
+  position: relative;
+}
+
+.chart-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.zone-rect {
+  position: absolute;
+  left: 0;
+  right: 0;
+  opacity: 0.18;
+}
+
+.zone-profit-long {
+  background: rgba(34, 197, 94, 0.35);
+}
+
+.zone-risk-long {
+  background: rgba(239, 68, 68, 0.28);
+}
+
+.zone-profit-short {
+  background: rgba(239, 68, 68, 0.35);
+}
+
+.zone-risk-short {
+  background: rgba(34, 197, 94, 0.28);
 }
 
 .legend {
@@ -253,6 +318,126 @@ body {
 
 @media (max-width: 900px) {
   .main {
-    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+  .sidebar {
+    width: 100%;
+    max-width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .levels-card, .stats-card {
+    flex: 1;
+    min-width: 280px;
   }
 }
+
+/* Performance Stats Card */
+.stats-card {
+  background: var(--card);
+  border-radius: 14px;
+  padding: 14px;
+  flex-shrink: 0;
+}
+
+.stats-card h2 {
+  font-size: 16px;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.stat-item {
+  background: rgba(255,255,255,0.03);
+  border-radius: 10px;
+  padding: 12px 10px;
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 700;
+  display: block;
+}
+
+.stat-label {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+  display: block;
+}
+
+.stat-item.win .stat-value {
+  color: var(--green);
+}
+
+.stat-item.success .stat-value {
+  color: var(--green);
+}
+
+.stat-item.danger .stat-value {
+  color: var(--red);
+}
+
+.stats-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+.stats-footer span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.small-btn {
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.small-btn:hover {
+  opacity: 0.85;
+}
+
+/* Outcome notification */
+.outcome-toast {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  padding: 16px 24px;
+  border-radius: 12px;
+  font-weight: 600;
+  z-index: 1000;
+  animation: slideIn 0.3s ease;
+}
+
+.outcome-toast.target {
+  background: rgba(34, 197, 94, 0.9);
+  color: white;
+}
+
+.outcome-toast.sl {
+  background: rgba(239, 68, 68, 0.9);
+  color: white;
+}
+
+@keyframes slideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+

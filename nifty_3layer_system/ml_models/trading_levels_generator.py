@@ -40,9 +40,129 @@ class TradingLevelsGenerator:
         ist_now = datetime.now(self.ist)
         return ist_now.strftime("%Y-%m-%d %H:%M:%S IST")
     
+    def _check_signal_quality(self, df: pd.DataFrame, direction: str, ml_confidence: float) -> Dict:
+        """
+        Check if signal quality is high enough to trade.
+        Returns quality score and rejection reasons.
+        
+        Quality checks:
+        1. ML Confidence >= 70% (not just 60%)
+        2. Trend alignment (EMA 5 > 20 > 50 for BUY, opposite for SELL)
+        3. RSI not extreme against direction (not overbought for BUY near 75+)
+        4. MACD histogram confirms direction
+        5. Price position relative to VWAP
+        """
+        quality_score = 0
+        max_score = 5
+        rejection_reasons = []
+        
+        # Get latest values
+        close = df['close'].iloc[-1]
+        
+        # === CHECK 1: ML Confidence >= 70% (stricter than 60%) ===
+        if ml_confidence >= 70:
+            quality_score += 1
+        else:
+            rejection_reasons.append(f"Low ML confidence: {ml_confidence:.1f}% < 70%")
+        
+        # === CHECK 2: EMA Trend Alignment ===
+        ema5 = df['ema_5'].iloc[-1] if 'ema_5' in df.columns else close
+        ema20 = df['ema_20'].iloc[-1] if 'ema_20' in df.columns else close
+        ema50 = df['ema_50'].iloc[-1] if 'ema_50' in df.columns else close
+        
+        if direction == 'BUY':
+            # For BUY: Price should be above EMAs or EMAs stacking up
+            if close > ema20 and ema5 > ema20:
+                quality_score += 1
+            elif close > ema50:  # At least above EMA50
+                quality_score += 0.5
+            else:
+                rejection_reasons.append(f"Bearish trend: Price {close:.2f} below EMA20 {ema20:.2f}")
+        else:  # SELL
+            # For SELL: Price should be below EMAs or EMAs stacking down
+            if close < ema20 and ema5 < ema20:
+                quality_score += 1
+            elif close < ema50:  # At least below EMA50
+                quality_score += 0.5
+            else:
+                rejection_reasons.append(f"Bullish trend: Price {close:.2f} above EMA20 {ema20:.2f}")
+        
+        # === CHECK 3: RSI Not Extreme Against Direction ===
+        rsi = df['rsi'].iloc[-1] if 'rsi' in df.columns else 50
+        
+        if direction == 'BUY':
+            if rsi < 70:  # Not overbought
+                quality_score += 1
+            elif rsi < 80:  # Slightly overbought
+                quality_score += 0.5
+            else:
+                rejection_reasons.append(f"RSI overbought: {rsi:.1f} - risky to BUY")
+            
+            # Bonus: RSI coming from oversold (good for BUY)
+            if rsi < 40:
+                quality_score += 0.5
+        else:  # SELL
+            if rsi > 30:  # Not oversold
+                quality_score += 1
+            elif rsi > 20:  # Slightly oversold
+                quality_score += 0.5
+            else:
+                rejection_reasons.append(f"RSI oversold: {rsi:.1f} - risky to SELL")
+            
+            # Bonus: RSI coming from overbought (good for SELL)
+            if rsi > 60:
+                quality_score += 0.5
+        
+        # === CHECK 4: MACD Histogram Direction ===
+        macd_hist = df['macd_histogram'].iloc[-1] if 'macd_histogram' in df.columns else 0
+        macd_hist_prev = df['macd_histogram'].iloc[-2] if 'macd_histogram' in df.columns and len(df) > 1 else 0
+        
+        if direction == 'BUY':
+            if macd_hist > 0 or (macd_hist > macd_hist_prev):  # Positive or improving
+                quality_score += 1
+            else:
+                rejection_reasons.append(f"MACD bearish: histogram {macd_hist:.2f}")
+        else:  # SELL
+            if macd_hist < 0 or (macd_hist < macd_hist_prev):  # Negative or declining
+                quality_score += 1
+            else:
+                rejection_reasons.append(f"MACD bullish: histogram {macd_hist:.2f}")
+        
+        # === CHECK 5: Not in Choppy/Ranging Market ===
+        # Check if recent candles are too choppy (many direction changes)
+        recent_changes = df['close'].iloc[-10:].diff().dropna()
+        direction_changes = (recent_changes > 0).astype(int).diff().abs().sum()
+        
+        if direction_changes <= 5:  # Trending, not choppy
+            quality_score += 1
+        elif direction_changes <= 7:
+            quality_score += 0.5
+        else:
+            rejection_reasons.append(f"Choppy market: {int(direction_changes)} direction changes in 10 candles")
+        
+        # Final quality assessment
+        quality_pct = (quality_score / max_score) * 100
+        is_quality_signal = quality_pct >= 60  # Need at least 60% quality score
+        
+        return {
+            'quality_score': quality_score,
+            'max_score': max_score,
+            'quality_pct': quality_pct,
+            'is_quality_signal': is_quality_signal,
+            'rejection_reasons': rejection_reasons,
+            'checks': {
+                'ml_confidence': ml_confidence,
+                'rsi': rsi,
+                'macd_histogram': macd_hist,
+                'ema5': ema5,
+                'ema20': ema20,
+                'close': close
+            }
+        }
+    
     def calculate_levels(self, df: pd.DataFrame) -> Dict:
         """
-        Convert ML prediction to trading levels
+        Convert ML prediction to trading levels WITH QUALITY FILTERS
         
         Args:
             df: DataFrame with OHLCV data
@@ -50,6 +170,10 @@ class TradingLevelsGenerator:
         Returns:
             Dictionary with Level, Entry, Exit, SL, and metadata
         """
+        # Generate features if not present (needed for quality checks)
+        if 'rsi' not in df.columns or 'ema_20' not in df.columns:
+            df = self.predictor.fe.generate_all_features(df)
+        
         # Get ML prediction
         ml_result = self.predictor.predict_direction(df)
         
@@ -64,14 +188,56 @@ class TradingLevelsGenerator:
         # Confidence-based risk/reward - convert from 0-100 to 0-1 scale
         confidence = ml_result['confidence'] / 100  # Convert to decimal
         
+        # ========== QUALITY FILTER CHECK ==========
+        quality = self._check_signal_quality(df, ml_result['direction'], ml_result['confidence'])
+        
+        if not quality['is_quality_signal']:
+            # Signal failed quality check - return WAIT
+            return {
+                'direction': ml_result['direction'],
+                'action': 'WAIT',
+                'confidence': ml_result['confidence'],
+                'up_probability': ml_result['up_probability'],
+                'down_probability': ml_result['down_probability'],
+                'timestamp_ist': self.get_ist_time(),
+                'forecast_horizon': '15-30 minutes',
+                
+                # Quality info
+                'quality_score': quality['quality_pct'],
+                'quality_checks': quality['checks'],
+                'rejection_reasons': quality['rejection_reasons'],
+                
+                # Partial levels (for reference only, NOT tradable)
+                'level_zone': round(recent_low if ml_result['direction'] == 'BUY' else recent_high, 2),
+                'entry': None,
+                'exit_target': None,
+                'stoploss': None,
+                
+                # Current market info
+                'current_price': round(current_price, 2),
+                'atr': round(atr, 2),
+                'recent_20c_high': round(recent_high, 2),
+                'recent_20c_low': round(recent_low, 2),
+                
+                # Reason
+                'wait_reason': f"Low quality signal ({quality['quality_pct']:.0f}%): {'; '.join(quality['rejection_reasons'][:2])}"
+            }
+        
+        # ========== QUALITY PASSED - Generate levels ==========
         if ml_result['direction'] == 'BUY':
-            return self._calculate_buy_levels(
+            levels = self._calculate_buy_levels(
                 current_price, atr, recent_high, recent_low, confidence, ml_result
             )
         else:
-            return self._calculate_sell_levels(
+            levels = self._calculate_sell_levels(
                 current_price, atr, recent_high, recent_low, confidence, ml_result
             )
+        
+        # Add quality info to levels
+        levels['quality_score'] = quality['quality_pct']
+        levels['quality_checks'] = quality['checks']
+        
+        return levels
     
     def _calculate_buy_levels(self, price, atr, high, low, confidence, ml_result) -> Dict:
         """Calculate BUY setup levels"""

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>NIFTY/SENSEX Levels Dashboard</title>
-  <link rel="stylesheet" href="/static/styles.css?v=5" />
+  <link rel="stylesheet" href="/static/styles.css?v=7" />
   <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
@@ -29,6 +29,7 @@
         <div class="price-card">
           <span class="label">Updated</span>
           <span id="lastUpdated" class="value">--</span>
+          <span style="font-size: 10px; color: #9ca3af;">(IST)</span>
         </div>
       </div>
     </header>
@@ -59,42 +60,83 @@
         </div>
       </section>
 
-      <section class="levels-card">
-        <h2>Trading Levels</h2>
-        <div class="levels-grid">
-          <div class="level-item">
-            <span class="label">Direction</span>
-            <span id="direction" class="value">--</span>
+      <aside class="sidebar">
+        <section class="levels-card">
+          <h2>Trading Levels</h2>
+          <div class="levels-grid">
+            <div class="level-item">
+              <span class="label">Direction</span>
+              <span id="direction" class="value">--</span>
+            </div>
+            <div class="level-item">
+              <span class="label">Confidence</span>
+              <span id="confidence" class="value">--</span>
+            </div>
+            <div class="level-item">
+              <span class="label">Quality</span>
+              <span id="quality" class="value">--</span>
+            </div>
+            <div class="level-item">
+              <span class="label">Entry</span>
+              <span id="entry" class="value">--</span>
+            </div>
+            <div class="level-item">
+              <span class="label">Target</span>
+              <span id="target" class="value">--</span>
+            </div>
+            <div class="level-item">
+              <span class="label">Stop Loss</span>
+              <span id="stoploss" class="value">--</span>
+            </div>
+            <div class="level-item">
+              <span class="label">Risk:Reward</span>
+              <span id="rr" class="value">--</span>
+            </div>
           </div>
-          <div class="level-item">
-            <span class="label">Confidence</span>
-            <span id="confidence" class="value">--</span>
+          <div class="meta">
+            <div><strong>Zone:</strong> <span id="zone">--</span></div>
+            <div><strong>Note:</strong> <span id="note">--</span></div>
           </div>
-          <div class="level-item">
-            <span class="label">Entry</span>
-            <span id="entry" class="value">--</span>
+        </section>
+
+        <!-- Performance Stats Panel -->
+        <section class="stats-card">
+          <h2>📊 Performance Stats</h2>
+          <div class="stats-grid">
+            <div class="stat-item win">
+              <span class="stat-value" id="winRate">--%</span>
+              <span class="stat-label">Win Rate</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value" id="totalTrades">0</span>
+              <span class="stat-label">Total Signals</span>
+            </div>
+            <div class="stat-item success">
+              <span class="stat-value" id="winCount">0</span>
+              <span class="stat-label">Targets Hit</span>
+            </div>
+            <div class="stat-item danger">
+              <span class="stat-value" id="lossCount">0</span>
+              <span class="stat-label">SL Hit</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value" id="totalPnl">0</span>
+              <span class="stat-label">Total P&L (pts)</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value" id="avgDuration">--</span>
+              <span class="stat-label">Avg Duration</span>
+            </div>
           </div>
-          <div class="level-item">
-            <span class="label">Target</span>
-            <span id="target" class="value">--</span>
+          <div class="stats-footer">
+            <span id="statsNote">Loading stats...</span>
+            <button id="refreshStats" class="small-btn">Refresh</button>
           </div>
-          <div class="level-item">
-            <span class="label">Stop Loss</span>
-            <span id="stoploss" class="value">--</span>
-          </div>
-          <div class="level-item">
-            <span class="label">Risk:Reward</span>
-            <span id="rr" class="value">--</span>
-          </div>
-        </div>
-        <div class="meta">
-          <div><strong>Zone:</strong> <span id="zone">--</span></div>
-          <div><strong>Note:</strong> <span id="note">--</span></div>
-        </div>
-      </section>
+        </section>
+      </aside>
     </main>
   </div>
 
-  <script src="/static/app.js?v=13"></script>
+  <script src="/static/app.js?v=18"></script>
 </body>
 </html>

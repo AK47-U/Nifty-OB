@@ -27,14 +27,15 @@ class InstrumentType(Enum):
 
 
 class ExchangeSegment(Enum):
-    """Exchange segments"""
-    NSE_EQ = 0
-    NSE_FNO = 1
-    BSE_EQ = 3
-    MCX_COMM = 4
-    NSE_CURRENCY = 7
-    BSE_CURRENCY = 13
-    IDX_I = 16  # Index segment
+    """Exchange segments - Dhan API v2 (matches dhanhq library)"""
+    IDX_I = 0       # Index segment
+    NSE_EQ = 1      # NSE Cash
+    NSE_FNO = 2     # NSE F&O
+    NSE_CURRENCY = 3
+    BSE_EQ = 4      # BSE Cash
+    MCX_COMM = 5    # MCX Commodity
+    BSE_CURRENCY = 7
+    BSE_FNO = 8
 
 
 @dataclass
@@ -96,31 +97,44 @@ class DhanWebSocket:
         logger.info("Dhan WebSocket client initialized")
     
     async def connect(self):
-        """Establish WebSocket connection"""
-        try:
-            logger.info(f"Connecting to Dhan WebSocket Feed...")
-            
-            connect_kwargs = {
-                "ping_interval": 30,
-                "ping_timeout": 10,
-            }
+        """Establish WebSocket connection with retry logic"""
+        max_retries = 5
+        retry_count = 0
+        
+        while retry_count < max_retries:
+            try:
+                logger.info(f"Connecting to Dhan WebSocket Feed (attempt {retry_count + 1}/{max_retries})...")
+                
+                connect_kwargs = {
+                    "ping_interval": 30,
+                    "ping_timeout": 10,
+                }
 
-            self.websocket = await websockets.connect(
-                self.ws_url,
-                **connect_kwargs
-            )
-            
-            self.is_connected = True
-            logger.success("WebSocket connected successfully ✓")
-            
-            # Start message receiver
-            asyncio.create_task(self._receive_messages())
-            
-        except Exception as e:
-            logger.error(f"WebSocket connection failed: {e}")
-            self.is_connected = False
-            if self.on_error_callback:
-                self.on_error_callback(str(e))
+                self.websocket = await websockets.connect(
+                    self.ws_url,
+                    **connect_kwargs
+                )
+                
+                self.is_connected = True
+                logger.success("WebSocket connected successfully ✓")
+                
+                # Start message receiver
+                asyncio.create_task(self._receive_messages())
+                return  # Success, exit retry loop
+                
+            except Exception as e:
+                retry_count += 1
+                logger.error(f"WebSocket connection failed (attempt {retry_count}/{max_retries}): {e}")
+                self.is_connected = False
+                
+                if retry_count < max_retries:
+                    wait_time = 2 ** retry_count  # Exponential backoff: 2, 4, 8, 16 seconds
+                    logger.info(f"Retrying in {wait_time} seconds...")
+                    await asyncio.sleep(wait_time)
+                else:
+                    logger.error("Failed to connect after maximum retries. Check your token validity.")
+                    if self.on_error_callback:
+                        self.on_error_callback(str(e))
     
     async def disconnect(self):
         """Close WebSocket connection"""
@@ -149,13 +163,25 @@ class DhanWebSocket:
         
         subscription_code = 15  # Ticker data
         
+        # Map exchange segment to string format expected by Dhan v2 API
+        exchange_map = {
+            0: "IDX_I",      # Index
+            1: "NSE_EQ",     # NSE Cash
+            2: "NSE_FNO",    # NSE F&O
+            3: "NSE_CURRENCY",
+            4: "BSE_EQ",
+            5: "MCX_COMM",
+            7: "BSE_CURRENCY",
+            8: "BSE_FNO"
+        }
+        actual_exchange = exchange_map.get(exchange_segment.value, "IDX_I")
+        
         request = {
             "RequestCode": subscription_code,
             "InstrumentCount": 1,
             "InstrumentList": [{
-                "ExchangeSegment": exchange_segment.value,
-                "SecurityId": security_id,
-                "InstrumentType": instrument_type.value
+                "ExchangeSegment": actual_exchange,
+                "SecurityId": str(security_id)
             }]
         }
         
@@ -306,17 +332,23 @@ class DhanWebSocket:
         try:
             async for message in self.websocket:
                 try:
-                    data = json.loads(message)
-                    await self._process_message(data)
+                    # Check if binary data
+                    if isinstance(message, bytes):
+                        await self._process_binary_message(message)
+                    else:
+                        # JSON message
+                        data = json.loads(message)
+                        await self._process_message(data)
                 except json.JSONDecodeError:
-                    # Binary data (market depth)
-                    await self._process_binary_message(message)
+                    await self._process_binary_message(message.encode() if isinstance(message, str) else message)
                 except Exception as e:
                     logger.error(f"Error processing message: {e}")
         
-        except websockets.exceptions.ConnectionClosed:
-            logger.warning("WebSocket connection closed")
+        except websockets.exceptions.ConnectionClosed as e:
+            logger.warning(f"WebSocket connection closed: {e.rcvd_then_sent}")
             self.is_connected = False
+            logger.error(f"Close code: {e.rcvd.code if e.rcvd else 'None'}, reason: {e.rcvd.reason if e.rcvd else 'No reason'}")
+            logger.info("This usually means: invalid token, expired token, or authentication failed")
         except Exception as e:
             logger.error(f"Error in message receiver: {e}")
             self.is_connected = False
@@ -350,9 +382,49 @@ class DhanWebSocket:
             logger.error(f"Error parsing message: {e}")
     
     async def _process_binary_message(self, data: bytes):
-        """Process binary message (market depth)"""
-        # TODO: Implement binary parsing based on Dhan protocol
-        pass
+        """Process binary message from Dhan WebSocket (v2 ticker format)"""
+        if len(data) < 16:
+            return
+            
+        try:
+            import struct
+            
+            # First byte indicates message type
+            msg_type = data[0]
+            
+            if msg_type == 2:  # Ticker data
+                # Format: <BHBIfI = type(1), ?(2), exchange_seg(1), security_id(4), ltp(4), ?(4) = 16 bytes
+                unpacked = struct.unpack('<BHBIfI', data[0:16])
+                exchange_segment = unpacked[2]
+                security_id = unpacked[3]
+                ltp = unpacked[4]
+                
+                tick = TickData(
+                    security_id=str(security_id),
+                    exchange_segment=exchange_segment,
+                    ltp=ltp,
+                    ltt=None,
+                    ltq=None,
+                    volume=None,
+                    bid=None,
+                    ask=None,
+                    oi=None,
+                    oi_change=None,
+                    timestamp=datetime.now()
+                )
+                
+                if self.on_tick_callback:
+                    self.on_tick_callback(tick)
+            
+            elif msg_type == 4:  # Quote data
+                # More fields available in quote
+                pass
+            
+            elif msg_type == 50:  # Server disconnection
+                logger.warning("Server disconnection message received")
+                
+        except Exception as e:
+            print(f"[WS BINARY ERROR] {e}")
     
     def _parse_tick_data(self, data: Dict) -> TickData:
         """Parse ticker data"""

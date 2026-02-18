@@ -35,6 +35,7 @@ class FeatureEngineer:
         df['ema_5'] = self.ti.calculate_ema(df['close'], period=5)
         df['ema_20'] = self.ti.calculate_ema(df['close'], period=20)
         df['ema_50'] = self.ti.calculate_ema(df['close'], period=50)
+        df['ema_200'] = self.ti.calculate_ema(df['close'], period=200)
         
         # VWAP (Volume Weighted Average Price)
         df['vwap'] = (df['close'] * df['volume']).cumsum() / df['volume'].cumsum()
@@ -84,12 +85,16 @@ class FeatureEngineer:
         df['dist_ema5'] = ((df['close'] - df['ema_5']) / df['close']) * 100
         df['dist_ema20'] = ((df['close'] - df['ema_20']) / df['close']) * 100
         df['dist_ema50'] = ((df['close'] - df['ema_50']) / df['close']) * 100
+        df['dist_ema200'] = ((df['close'] - df['ema_200']) / df['close']) * 100
         
         # EMA alignment (is trend aligned?)
         df['ema_alignment'] = np.where(
             (df['ema_5'] > df['ema_20']) & (df['ema_20'] > df['ema_50']), 1,
             np.where((df['ema_5'] < df['ema_20']) & (df['ema_20'] < df['ema_50']), -1, 0)
         )
+
+        # Macro baseline trend regime (EMA200)
+        df['trend_regime'] = np.where(df['close'] >= df['ema_200'], 1, -1)
         
         # logger.info("✓ Price features calculated")
         return df
@@ -107,6 +112,13 @@ class FeatureEngineer:
         
         # Volume change
         df['volume_change'] = df['volume'].pct_change()
+
+        # Volume Z-score (volume drift)
+        vol_mean = df['volume'].rolling(window=20).mean()
+        vol_std = df['volume'].rolling(window=20).std()
+        df['volume_zscore'] = (df['volume'] - vol_mean) / (vol_std + 1e-10)
+        df['volume_zscore_ma5'] = df['volume_zscore'].rolling(window=5).mean()
+        df['volume_drift'] = df['volume_zscore'] * df['price_change'].fillna(0)
         
         # Price-volume correlation
         df['pv_correlation'] = df['close'].rolling(window=20).corr(df['volume'])
@@ -365,11 +377,14 @@ class FeatureEngineer:
             'close_position', 'price_change', 'price_change_5', 'price_change_10',
             'roc_5', 'roc_10',
             'dist_ema5', 'dist_ema20', 'dist_ema50',
+            'dist_ema200',
             'dist_vwap',
             'ema_alignment',
+            'trend_regime',
             
             # Volume features
             'volume_ratio', 'volume_change', 'pv_correlation',
+            'volume_zscore', 'volume_zscore_ma5', 'volume_drift',
             
             # Time features
             'hour', 'minute', 'day_of_week', 'market_phase',

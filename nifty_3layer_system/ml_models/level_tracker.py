@@ -85,38 +85,49 @@ class LevelTracker:
             
             timestamp = datetime.now(IST).strftime('%Y-%m-%d %H:%M:%S')
             
+            # Convert numpy types to Python native types
+            def to_float(val):
+                if val is None:
+                    return None
+                try:
+                    return float(val)
+                except (TypeError, ValueError):
+                    return None
+            
             cursor.execute("""
             INSERT OR IGNORE INTO level_signals (
-                timestamp, direction, action, confidence,
+                timestamp, symbol, direction, action, confidence,
                 current_price, entry_price, target_price, sl_price,
                 atr, risk_points, reward_points, rr_ratio,
                 market_hour
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 timestamp,
-                levels['direction'],
-                levels['action'],
-                levels['confidence'],
-                levels['current_price'],
-                levels['entry'],
-                levels['exit_target'],
-                levels['stoploss'],
-                levels['atr'],
-                levels['risk_per_trade'],
-                levels['reward_per_trade'],
-                levels['risk_reward_ratio'],
+                str(levels.get('symbol', 'NIFTY')),
+                str(levels.get('direction', '')),
+                str(levels.get('action', '')),
+                to_float(levels.get('confidence')),
+                to_float(levels.get('current_price')),
+                to_float(levels.get('entry')),
+                to_float(levels.get('exit_target')),
+                to_float(levels.get('stoploss')),
+                to_float(levels.get('atr')),
+                to_float(levels.get('risk_per_trade')),
+                to_float(levels.get('reward_per_trade')),
+                to_float(levels.get('risk_reward_ratio')),
                 datetime.now(IST).hour
             ))
             
+            inserted_id = cursor.lastrowid
             conn.commit()
             conn.close()
             
-            logger.info(f"✓ Signal logged: {levels['direction']} @ {levels['current_price']:.2f}")
-            return True
+            logger.info(f"✓ Signal logged ID:{inserted_id} | {levels.get('direction')} @ {to_float(levels.get('current_price')):.2f}")
+            return inserted_id  # Return the actual DB ID
             
         except Exception as e:
             logger.error(f"Failed to log signal: {str(e)}")
-            return False
+            return None
     
     def check_outcomes(self, current_df: pd.DataFrame):
         """
@@ -285,17 +296,25 @@ class LevelTracker:
             avg_win_duration = df[df['outcome'] == 'TARGET']['duration_minutes'].mean()
             avg_loss_duration = df[df['outcome'] == 'SL']['duration_minutes'].mean()
             
+            # Helper to convert numpy types to Python native
+            def to_native(val):
+                if pd.isna(val):
+                    return None
+                if hasattr(val, 'item'):
+                    return val.item()
+                return val
+            
             return {
-                'total_signals': total,
-                'wins': wins,
-                'losses': losses,
-                'win_rate': (wins / total * 100) if total > 0 else 0,
-                'avg_win_duration_min': avg_win_duration,
-                'avg_loss_duration_min': avg_loss_duration,
-                'avg_pnl_per_trade': df['pnl_points'].mean(),
-                'total_pnl': df['pnl_points'].sum(),
-                'best_hour': df.groupby('market_hour')['pnl_points'].mean().idxmax(),
-                'worst_hour': df.groupby('market_hour')['pnl_points'].mean().idxmin()
+                'total_signals': int(total),
+                'wins': int(wins),
+                'losses': int(losses),
+                'win_rate': float((wins / total * 100) if total > 0 else 0),
+                'avg_win_duration_min': to_native(avg_win_duration),
+                'avg_loss_duration_min': to_native(avg_loss_duration),
+                'avg_pnl_per_trade': to_native(df['pnl_points'].mean()),
+                'total_pnl': to_native(df['pnl_points'].sum()),
+                'best_hour': to_native(df.groupby('market_hour')['pnl_points'].mean().idxmax()),
+                'worst_hour': to_native(df.groupby('market_hour')['pnl_points'].mean().idxmin())
             }
             
         except Exception as e:

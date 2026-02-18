@@ -33,6 +33,7 @@ class DhanConfig:
     access_token: str
     base_url: str = "https://api.dhan.co/v2"
     ws_url: str = "wss://api-feed.dhan.co?version=2"
+    token_expiry: Optional[datetime] = None
     
     @staticmethod
     def from_env() -> 'DhanConfig':
@@ -43,14 +44,70 @@ class DhanConfig:
         if missing:
             raise ValueError(f"Missing environment variables: {missing}. Check .env file.")
         
+        # Parse token expiry if available
+        token_expiry = None
+        if os.getenv('DHAN_TOKEN_EXPIRY'):
+            try:
+                token_expiry = datetime.fromisoformat(os.getenv('DHAN_TOKEN_EXPIRY'))
+            except:
+                pass
+        
         return DhanConfig(
             client_id=os.getenv('DHAN_CLIENT_ID'),
             api_key=os.getenv('DHAN_API_KEY'),
             api_secret=os.getenv('DHAN_API_SECRET'),
             access_token=os.getenv('DHAN_ACCESS_TOKEN'),
             base_url=os.getenv('DHAN_BASE_URL', 'https://api.dhan.co/v2'),
-            ws_url=os.getenv('DHAN_WS_URL', 'wss://api-feed.dhan.co?version=2')
+            ws_url=os.getenv('DHAN_WS_URL', 'wss://api-feed.dhan.co?version=2'),
+            token_expiry=token_expiry
         )
+    
+    def update_env_file(self, new_token: str, expiry: datetime):
+        """Update .env file with new token and expiry"""
+        env_path = Path.cwd() / '.env'
+        if not env_path.exists():
+            logger.warning(f".env file not found at {env_path}")
+            return
+        
+        try:
+            # Read current .env content
+            with open(env_path, 'r') as f:
+                lines = f.readlines()
+            
+            # Update token and expiry
+            updated = False
+            expiry_updated = False
+            new_lines = []
+            
+            for line in lines:
+                if line.startswith('DHAN_ACCESS_TOKEN='):
+                    new_lines.append(f'DHAN_ACCESS_TOKEN={new_token}\n')
+                    updated = True
+                elif line.startswith('DHAN_TOKEN_EXPIRY='):
+                    new_lines.append(f'DHAN_TOKEN_EXPIRY={expiry.isoformat()}\n')
+                    expiry_updated = True
+                else:
+                    new_lines.append(line)
+            
+            # Add if not exists
+            if not updated:
+                new_lines.append(f'DHAN_ACCESS_TOKEN={new_token}\n')
+            if not expiry_updated:
+                new_lines.append(f'DHAN_TOKEN_EXPIRY={expiry.isoformat()}\n')
+            
+            # Write back
+            with open(env_path, 'w') as f:
+                f.writelines(new_lines)
+            
+            # Update current config
+            self.access_token = new_token
+            self.token_expiry = expiry
+            os.environ['DHAN_ACCESS_TOKEN'] = new_token
+            os.environ['DHAN_TOKEN_EXPIRY'] = expiry.isoformat()
+            
+            logger.info(f"✅ Token updated in .env file. New expiry: {expiry}")
+        except Exception as e:
+            logger.error(f"Failed to update .env file: {e}")
 
 
 class RateLimiter:
@@ -134,11 +191,17 @@ class DhanAPIClient:
             'client-id': self.config.client_id
         }
     
-    def _validate_response(self, response: requests.Response) -> Dict:
+    def _validate_response(self, response: requests.Response, retry_on_401: bool = True) -> Dict:
         """Validate and parse API response"""
         try:
             response.raise_for_status()
         except requests.HTTPError as e:
+            # Handle 401 Unauthorized
+            if response.status_code == 401:
+                logger.error("⚠️ 401 Unauthorized - Access token expired!")
+                logger.error("📋 To fix: Update DHAN_ACCESS_TOKEN in .env file")
+                raise ValueError("Token expired - please update DHAN_ACCESS_TOKEN in .env and restart")
+            
             error_msg = f"HTTP {response.status_code}: {response.text}"
             logger.error(error_msg)
             raise ValueError(error_msg) from e
@@ -148,7 +211,7 @@ class DhanAPIClient:
         except json.JSONDecodeError as e:
             logger.error(f"Invalid JSON response: {response.text}")
             raise ValueError(f"Invalid JSON response") from e
-    
+
     def _get_cache(self, key: str) -> Optional[Dict]:
         """Get cached response if not expired"""
         if key in self._cache:
@@ -210,37 +273,46 @@ class DhanAPIClient:
         
         logger.info(f"Fetching {interval}m candles | {security_id} | {days}d")
         
-        try:
-            response = self._session.post(
-                f"{self.config.base_url}/charts/intraday",
-                headers=self._headers(),
-                json=payload,
-                timeout=10
-            )
-            data = self._validate_response(response)
+        # Auto-retry on token refresh
+        max_retries = 2
+        for attempt in range(max_retries):
+            try:
+                response = self._session.post(
+                    f"{self.config.base_url}/charts/intraday",
+                    headers=self._headers(),
+                    json=payload,
+                    timeout=10
+                )
+                data = self._validate_response(response)
+                
+                # Convert to DataFrame
+                df = pd.DataFrame({
+                    'open': data['open'],
+                    'high': data['high'],
+                    'low': data['low'],
+                    'close': data['close'],
+                    'volume': data['volume'],
+                    'timestamp': pd.to_datetime(data['timestamp'], unit='s'),
+                    'oi': data.get('open_interest', [0] * len(data['timestamp']))
+                })
             
-            # Convert to DataFrame
-            df = pd.DataFrame({
-                'open': data['open'],
-                'high': data['high'],
-                'low': data['low'],
-                'close': data['close'],
-                'volume': data['volume'],
-                'timestamp': pd.to_datetime(data['timestamp'], unit='s'),
-                'oi': data.get('open_interest', [0] * len(data['timestamp']))
-            })
+                df.set_index('timestamp', inplace=True)
+                df.sort_index(inplace=True)
+                
+                self._set_cache(cache_key, df.to_dict(orient='list'))
+                logger.info(f"✓ Fetched {len(df)} candles")
+                
+                return df
             
-            df.set_index('timestamp', inplace=True)
-            df.sort_index(inplace=True)
-            
-            self._set_cache(cache_key, df.to_dict(orient='list'))
-            logger.info(f"✓ Fetched {len(df)} candles")
-            
-            return df
-        
-        except Exception as e:
-            logger.error(f"Failed to fetch candles: {e}")
-            raise
+            except TokenRefreshedException:
+                if attempt < max_retries - 1:
+                    logger.info(f"Retrying request after token refresh (attempt {attempt + 2}/{max_retries})...")
+                    continue
+                else:
+                    raise
+            except Exception as e:
+                logger.error(f"Failed to fetch candles: {e}")
+                raise
     
     def get_daily_candles(
         self,
@@ -437,6 +509,11 @@ class DhanAPIClient:
     
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
+
+
+class TokenRefreshedException(Exception):
+    """Raised when token is refreshed and request should be retried"""
+    pass
 
 
 # Instrument reference (commonly used)
